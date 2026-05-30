@@ -22,6 +22,7 @@ The algorithm is based on building the PRFs of nearby sources and computing thei
 ```
 pip install -r requirements.txt
 ```
+Note: lightkurve 2.6.0 requires pandas < 3.0, so the requirements pin pandas 2.x for compatibility.
 If you have any problems with the installation, you can drop an issue [here](https://github.com/castro-gzlz/TESS-cont/issues).
 
 ## Usage
