@@ -36,7 +36,7 @@ from matplotlib.patches import ConnectionPatch
 from astropy.coordinates import SkyCoord, Angle
 from matplotlib.collections import PathCollection
 from matplotlib.legend_handler import HandlerPathCollection
-from astropy.visualization.mpl_normalize import ImageNormalize
+from astropy.visualization import ImageNormalize
 
 
 # In[ ]:
@@ -1201,7 +1201,6 @@ else:
 
 
 # In[ ]:
-
 
 
 
