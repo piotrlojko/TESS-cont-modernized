@@ -59,6 +59,22 @@ def parse_cutout_size(cutout_size_raw):
     return cutout_size
 
 
+def get_finite_flux_footprint(flux_cube):
+    finite_any = np.any(np.isfinite(flux_cube), axis=0)
+    ys, xs = np.where(finite_any)
+    if len(xs) == 0:
+        return finite_any, None
+    bounds = {
+        'row_min': int(ys.min()),
+        'row_max': int(ys.max()),
+        'col_min': int(xs.min()),
+        'col_max': int(xs.max()),
+        'n_rows': int(ys.max() - ys.min() + 1),
+        'n_cols': int(xs.max() - xs.min() + 1),
+    }
+    return finite_any, bounds
+
+
 # In[ ]:
 
 
@@ -381,6 +397,25 @@ if tpf_or_tesscut == 'tesscut':
         print(f'Error: TESScut download failed for target {target}.')
         sys.exit()
     tic = tpf.targetid
+    requested_rows, requested_cols = cutout_size
+    retrieved_rows, retrieved_cols = tpf.shape[1:3]
+    finite_flux_mask, finite_flux_bounds = get_finite_flux_footprint(tpf.flux.value)
+    finite_pixels = int(np.sum(finite_flux_mask))
+    print(f'TESScut verification | requested: {requested_rows}x{requested_cols} px, '
+          f'retrieved: {retrieved_rows}x{retrieved_cols} px')
+    if finite_flux_bounds is None:
+        print('Error: TESScut verification failed. Retrieved cutout has no finite flux values in any cadence.')
+        sys.exit()
+    print(f'TESScut verification | finite-flux footprint: {finite_flux_bounds["n_rows"]}x{finite_flux_bounds["n_cols"]} px '
+          f'(rows {finite_flux_bounds["row_min"]}-{finite_flux_bounds["row_max"]}, '
+          f'cols {finite_flux_bounds["col_min"]}-{finite_flux_bounds["col_max"]}); '
+          f'finite pixels: {finite_pixels}/{retrieved_rows * retrieved_cols}')
+    if (finite_flux_bounds["n_rows"] < retrieved_rows) or (finite_flux_bounds["n_cols"] < retrieved_cols):
+        print('Note: finite-flux footprint is smaller than the retrieved TESScut dimensions. '
+              'This is expected when the target is close to detector edges/gaps in FFIs.')
+
+if tpf_or_tesscut == 'tpf':
+    finite_flux_mask = np.any(np.isfinite(tpf.flux.value), axis=0)
 
 
 # In[ ]:
@@ -598,6 +633,7 @@ CROWDSAP_pixel_by_pixel = np.divide(
     out=np.zeros_like(resampled),
     where=resampled > 0
 )
+CROWDSAP_pixel_by_pixel = np.where(finite_flux_mask, CROWDSAP_pixel_by_pixel, np.nan)
 #@|------------------------------------------------------------#@|
 
 
@@ -619,6 +655,8 @@ if aperture == 'threshold_median_flux':
     
 if aperture == 'threshold_target_flux':
     aperture_mask = CROWDSAP_pixel_by_pixel > threshold_target  
+
+aperture_mask = np.logical_and(aperture_mask, finite_flux_mask)
     
 #@|we save te aperture in a .csv file#@|
 if save_aper:
