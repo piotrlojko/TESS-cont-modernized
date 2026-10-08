@@ -140,7 +140,7 @@ try:
     cutout_size = (int(cutout_size.split(',')[0]), \
                    int(cutout_size.split(',')[1]))
 except:
-    cutout_size = (11,11) #@|similar to a tpf
+    cutout_size = (51,51) #@|similar to a tpf
     
 try:
     method_prf = OPTIONAL['method_prf']
