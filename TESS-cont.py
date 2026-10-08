@@ -174,6 +174,10 @@ else:
     except ValueError as error:
         print(f'Error: {error}')
         sys.exit()
+
+if tpf_or_tesscut == 'tesscut' and (cutout_size[0] > 100 or cutout_size[1] > 100):
+    print('Error: cutout_size for tesscut must be <= 100 in each dimension (MAST API limit).')
+    sys.exit()
     
 try:
     method_prf = OPTIONAL['method_prf']
