@@ -588,7 +588,12 @@ if method_prf == 'accurate':
 
 
 #@|-----------------CROWDSAP pixel by pixel--------------------#@|
-CROWDSAP_pixel_by_pixel = resampled_list[idx_target] / resampled
+CROWDSAP_pixel_by_pixel = np.divide(
+    resampled_list[idx_target],
+    resampled,
+    out=np.zeros_like(resampled),
+    where=resampled > 0
+)
 #@|------------------------------------------------------------#@|
 
 
@@ -922,6 +927,10 @@ tick_fontsize = 12 * font_scale
 legend_fontsize = 12 * font_scale
 colorbar_fontsize = 14 * font_scale
 
+if plot_percentages and max(nx, ny) > 21:
+    print('Note: plot_percentages=True is disabled for cutouts larger than 21x21 to keep the heatmap readable.')
+    plot_percentages = False
+
 fig = plt.figure(figsize=(6.93, 5.5))
 gs = gridspec.GridSpec(1,3, height_ratios=[1], width_ratios=[1,0.05,0.01])
 gs.update(left=0.05, right=0.95, bottom=0.12, top=0.95, wspace=0.01, hspace=0.03)
@@ -953,9 +962,12 @@ if plot_percentages:
                     
     for i in range(tpf.shape[1]):
         for j in range(tpf.shape[2]):
+            ratio_percent = np.round(CROWDSAP_pixel_by_pixel[i, j] * 100, 1)
+            if not np.isfinite(ratio_percent) or ratio_percent <= 0:
+                continue
 
             #@|trick to avoid 100.0 values (put instead 100)
-            if np.round(CROWDSAP_pixel_by_pixel[i, j] * 100, 1) == 100.0:
+            if ratio_percent == 100.0:
                 text = ax1.text(j+tpf.column, i+tpf.row, str(100),
                            ha="center", va="center", color="k", zorder = 1000, fontsize = pixel_fontsize) 
 
@@ -963,7 +975,7 @@ if plot_percentages:
                 #text = ax1.text(j+tpf.column, i+tpf.row, np.round(CROWDSAP_pixel_by_pixel[i, j] * 100, 1),
                                #ha="center", va="center", color="k", zorder = 1000, fontsize = 10.5)
                 
-                text = ax1.text(j+tpf.column, i+tpf.row, np.round(CROWDSAP_pixel_by_pixel[i, j] * 100, 1),
+                text = ax1.text(j+tpf.column, i+tpf.row, ratio_percent,
                                ha="center", va="center", color="k", zorder = 1000, fontsize = pixel_fontsize)
             
 
