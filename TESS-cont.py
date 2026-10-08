@@ -38,6 +38,26 @@ from matplotlib.collections import PathCollection
 from matplotlib.legend_handler import HandlerPathCollection
 from astropy.visualization import ImageNormalize
 
+plt.rcParams.update({
+    'font.family': 'STIXGeneral',
+    'mathtext.fontset': 'stix',
+})
+
+
+def parse_cutout_size(cutout_size_raw):
+    cutout_size_raw = str(cutout_size_raw).strip()
+    if ',' in cutout_size_raw:
+        parts = [part.strip() for part in cutout_size_raw.split(',') if part.strip() != '']
+        if len(parts) != 2:
+            raise ValueError("Invalid cutout_size format. Use 'N' or 'N,M'.")
+        cutout_size = (int(parts[0]), int(parts[1]))
+    else:
+        size = int(cutout_size_raw)
+        cutout_size = (size, size)
+    if cutout_size[0] <= 0 or cutout_size[1] <= 0:
+        raise ValueError('cutout_size values must be positive integers.')
+    return cutout_size
+
 
 # In[ ]:
 
@@ -131,16 +151,29 @@ except:
     search_radius = 200 #arcsec
     
 try:
-    tpf_or_tesscut = OPTIONAL['tpf_or_tesscut']
+    tpf_or_tesscut = OPTIONAL['tpf_or_tesscut'].strip().lower()
 except:
     tpf_or_tesscut = 'tpf'
+
+if tpf_or_tesscut not in ('tpf', 'tesscut'):
+    print("Error: tpf_or_tesscut must be either 'tpf' or 'tesscut'.")
+    sys.exit()
     
 try:
-    cutout_size = OPTIONAL['cutout_size']
-    cutout_size = (int(cutout_size.split(',')[0]), \
-                   int(cutout_size.split(',')[1]))
+    cutout_size_raw = OPTIONAL['cutout_size']
+    cutout_size_custom = True
 except:
-    cutout_size = (51,51) #@|similar to a tpf
+    cutout_size_raw = None
+    cutout_size_custom = False
+
+if cutout_size_raw is None:
+    cutout_size = (11,11)
+else:
+    try:
+        cutout_size = parse_cutout_size(cutout_size_raw)
+    except ValueError as error:
+        print(f'Error: {error}')
+        sys.exit()
     
 try:
     method_prf = OPTIONAL['method_prf']
@@ -313,8 +346,6 @@ if tpf_or_tesscut == 'tpf':
         #search_result = lk.search_targetpixelfile('TIC '+str(tic), sector = int(sector))
         search_result = lk.search_targetpixelfile(str(target), sector = int(sector))
     except NameError: search_result = lk.search_targetpixelfile(str(target))
-    tpf = search_result.download()
-    tic = tpf.targetid
     if len(search_result) == 0:
         try:
             print(f'Error: There is not a target pixel file for TIC {tic} (sector {sector}).\
@@ -322,6 +353,11 @@ if tpf_or_tesscut == 'tpf':
         except NameError: print(f'Error: There is not a target pixel file for TIC {tic}.\
             You can try with a tesscut on the FFIs!')
         sys.exit()
+    tpf = search_result.download()
+    tic = tpf.targetid
+    if cutout_size_custom and tpf.shape[1:3] != cutout_size:
+        print(f'Note: cutout_size={cutout_size} is only applied to tesscut products. '
+              f'SPOC TPFs have fixed dimensions ({tpf.shape[2]}, {tpf.shape[1]}).')
 
 #@|+++++++++++++++++++++++++++++++++++++++++++++++++++++++
 #@|download a tesscut on the TESS full-frame images (FFIs)
@@ -331,13 +367,16 @@ if tpf_or_tesscut == 'tesscut':
         search_result = lk.search_tesscut(str(target), sector = int(sector))
     except NameError:
         search_result = lk.search_tesscut(str(target))
-    tpf = search_result.download(cutout_size = cutout_size)
-    tic = tpf.targetid
     if len(search_result) == 0:
         try:
             print(f'Error: An error has occoured downloading the tesscut of TIC {tic} (sector {sector}).')
         except NameError: print(f'Error: An error has occoured downloading the tesscut of TIC {tic}.')
         sys.exit()
+    tpf = search_result.download(cutout_size = cutout_size)
+    if tpf is None:
+        print(f'Error: TESScut download failed for target {target}.')
+        sys.exit()
+    tic = tpf.targetid
 
 
 # In[ ]:
@@ -874,8 +913,16 @@ print('\033[1m' + f'Your pie chart {target_name}_S{sector}_piechart.pdf/png has 
 
 
 print(f'Generating the heatmap plot of {target_name} (Sector {sector}) ...')
-fig = plt.figure(figsize=(6.93, 5.5))
 _, ny, nx = np.shape(tpf)
+cutout_scale = max(nx, ny) / 11
+font_scale = float(np.clip(1 / np.sqrt(cutout_scale), 0.45, 1.0))
+pixel_fontsize = 10.5 * font_scale
+label_fontsize = 14 * font_scale
+tick_fontsize = 12 * font_scale
+legend_fontsize = 12 * font_scale
+colorbar_fontsize = 14 * font_scale
+
+fig = plt.figure(figsize=(6.93, 5.5))
 gs = gridspec.GridSpec(1,3, height_ratios=[1], width_ratios=[1,0.05,0.01])
 gs.update(left=0.05, right=0.95, bottom=0.12, top=0.95, wspace=0.01, hspace=0.03)
 ax1 = plt.subplot(gs[0,0])
@@ -910,21 +957,21 @@ if plot_percentages:
             #@|trick to avoid 100.0 values (put instead 100)
             if np.round(CROWDSAP_pixel_by_pixel[i, j] * 100, 1) == 100.0:
                 text = ax1.text(j+tpf.column, i+tpf.row, str(100),
-                           ha="center", va="center", color="k", zorder = 1000, fontsize = 10.5) 
+                           ha="center", va="center", color="k", zorder = 1000, fontsize = pixel_fontsize) 
 
             else: 
                 #text = ax1.text(j+tpf.column, i+tpf.row, np.round(CROWDSAP_pixel_by_pixel[i, j] * 100, 1),
                                #ha="center", va="center", color="k", zorder = 1000, fontsize = 10.5)
                 
                 text = ax1.text(j+tpf.column, i+tpf.row, np.round(CROWDSAP_pixel_by_pixel[i, j] * 100, 1),
-                               ha="center", va="center", color="k", zorder = 1000, fontsize = 10.5)
+                               ha="center", va="center", color="k", zorder = 1000, fontsize = pixel_fontsize)
             
 
 #@|#####
-plt.xlabel('Pixel Column Number', fontsize=14, zorder=200)
-plt.ylabel('Pixel Row Number', fontsize=14, zorder=200)
-plt.xticks(fontsize=12)
-plt.yticks(fontsize=12)
+plt.xlabel('Pixel Column Number', fontsize=label_fontsize, zorder=200)
+plt.ylabel('Pixel Row Number', fontsize=label_fontsize, zorder=200)
+plt.xticks(fontsize=tick_fontsize)
+plt.yticks(fontsize=tick_fontsize)
 
 
 #@|##################################################@|
@@ -977,7 +1024,7 @@ def updatescatter(handle, orig):
     handle.update_from(orig)
     handle.set_sizes([legend_marker_size])
 plt.legend(loc = loc_legend, handler_map={PathCollection : HandlerPathCollection(update_func=updatescatter)},\
-           framealpha=0.9, fontsize = 12).set_zorder(10000)
+           framealpha=0.9, fontsize = legend_fontsize).set_zorder(10000)
 
 #@|--------
 #@|COLORBAR
@@ -993,11 +1040,12 @@ cbax.set_position(pos2) # set a new position
 
 cb = Colorbar(ax = cbax, mappable = splot, orientation = 'vertical',
               ticklocation = 'right')
+cb.ax.tick_params(labelsize=tick_fontsize)
 
 if plot_target_name:
-    cb.set_label(f'Flux ratio from {target_name} (%)', labelpad=10, fontsize=14)
+    cb.set_label(f'Flux ratio from {target_name} (%)', labelpad=10, fontsize=colorbar_fontsize)
 else:
-    cb.set_label('Flux ratio from the target star (%)', labelpad=10, fontsize=14)
+    cb.set_label('Flux ratio from the target star (%)', labelpad=10, fontsize=colorbar_fontsize)
 
 #@|---------------------------
 #@|----save the heatmap-----#@|
@@ -1201,6 +1249,3 @@ else:
 
 
 # In[ ]:
-
-
-

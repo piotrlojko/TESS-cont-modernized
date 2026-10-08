@@ -128,7 +128,7 @@ This approximate method **typically provides very similar results** to the defau
 | scale_heatmap | natural or log | Scale of the heatmap color code. **Default**: natural |
 | colormap | Any matplotlib colormap | Colormap used for the heatmap. **Default**: viridis |
 | tpf_or_tesscut | tpf or tesscut | TPF or FFI tesscut. **Default**: tpf |
-| cutout_size| Number, Number | Size of the FFI tesscut. **Default**: 11,11 |
+| cutout_size| Number or Number, Number | Size of the FFI tesscut. A single number uses a square cutout. **Default**: 11,11 |
 | img_fmt | pdf, png, or pdfpng | Format of output images. **Default**: pdfpng |
 
 #### [DILUTION] | Arguments for the **DILUTION** analysis
